@@ -1,42 +1,78 @@
-name: Android Build
+name: Build Android Release App Bundle (AAB)
 
 on:
   push:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
+    name: Build Signed AAB
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
     - name: Set up JDK 17
       uses: actions/setup-java@v5
       with:
         java-version: '17'
         distribution: 'temurin'
+        cache: gradle
 
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v4
-      with:
-        gradle-version: '9.3.1'
-        validate-wrappers: false
-
-    - name: Setup Build Environment & Repair Wrapper
+    - name: Regenerate Gradle Wrapper & Prepare Environment
       run: |
-        touch .env
-        touch .env.example
+        echo "Dynamically regenerating pristine Gradle wrapper..."
         gradle wrapper --gradle-version 9.3.1
         chmod +x gradlew
+        echo "Verification: Checking gradlew and gradle-wrapper.jar..."
+        ls -la gradlew
+        ls -la gradle/wrapper/gradle-wrapper.jar
+        
+        # Create environment files required by Secrets Gradle Plugin
+        touch .env
+        touch .env.example
 
-    - name: Build Debug APK
-      run: ./gradlew assembleDebug --stacktrace --no-daemon
+    - name: Prepare Keystore File
+      run: |
+        if [ -f "app/release-upload-key.jks.base64" ]; then
+          echo "Decoding keystore from Base64 file robustly..."
+          tr -d '\r\n ' < app/release-upload-key.jks.base64 | base64 --decode > app/release-upload-key.jks
+          if [ -f "app/release-upload-key.jks" ]; then
+            echo "Keystore decoded successfully."
+            # Verify the integrity and password of the decoded keystore
+            keytool -list -keystore app/release-upload-key.jks -storepass "HalalCircleSecureUploadKey2026AAB99" && echo "Keystore verification successful!"
+          else
+            echo "Error: Failed to decode keystore!"
+            exit 1
+          fi
+        else
+          echo "Error: app/release-upload-key.jks.base64 not found in repository!"
+          exit 1
+        fi
 
-    - name: Upload APK
+    - name: Build Release Bundle and APK
+      run: |
+        # Configure release credentials directly to use the new upload key
+        export PLAY_STORE_KEYSTORE_PATH="release-upload-key.jks"
+        export PLAY_STORE_STORE_PASSWORD="HalalCircleSecureUploadKey2026AAB99"
+        export PLAY_STORE_KEY_ALIAS="upload"
+        export PLAY_STORE_KEY_PASSWORD="HalalCircleSecureUploadKey2026AAB99"
+        
+        echo "Building and signing AAB and APK with the new upload keystore..."
+        ./gradlew :app:bundleRelease :app:assembleRelease --no-daemon --stacktrace
+
+    - name: Upload Release AAB Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: app-debug
-        path: app/build/outputs/apk/debug/*.apk
+        name: release-app-bundle
+        path: app/build/outputs/bundle/release/app-release.aab
+
+    - name: Upload Release APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-apk
+        path: app/build/outputs/apk/release/app-release.apk
