@@ -57,10 +57,9 @@ jobs:
     - name: Build Release Bundle and APK
       run: |
         # Configure release credentials directly to use the new upload key
-        export PLAY_STORE_KEYSTORE_PATH="release-upload-key.jks"
-        export PLAY_STORE_STORE_PASSWORD="HalalCircleSecureUploadKey2026AAB99"
-        export PLAY_STORE_KEY_ALIAS="upload"
-        export PLAY_STORE_KEY_PASSWORD="HalalCircleSecureUploadKey2026AAB99"
+        export KEYSTORE_PATH="app/release-upload-key.jks"
+        export STORE_PASSWORD="HalalCircleSecureUploadKey2026AAB99"
+        export KEY_PASSWORD="HalalCircleSecureUploadKey2026AAB99"
         
         echo "Building and signing AAB and APK with the new upload keystore..."
         ./gradlew :app:bundleRelease :app:assembleRelease --no-daemon --stacktrace
