@@ -39,7 +39,7 @@ abstract class TaskPayDatabase : RoomDatabase() {
                     TaskPayDatabase::class.java,
                     "taskpay_database"
                 )
-                .fallbackToDestructiveMigration()
+                .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
                 INSTANCE = instance
                 instance

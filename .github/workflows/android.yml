@@ -1,4 +1,4 @@
-name: Build Android Release App Bundle (AAB)
+name: Android CI Build
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    name: Build Signed AAB
+    name: Build APKs (No Keystore Required)
     runs-on: ubuntu-latest
 
     steps:
@@ -28,50 +28,25 @@ jobs:
         echo "Dynamically regenerating pristine Gradle wrapper..."
         gradle wrapper --gradle-version 9.3.1
         chmod +x gradlew
-        echo "Verification: Checking gradlew and gradle-wrapper.jar..."
-        ls -la gradlew
-        ls -la gradle/wrapper/gradle-wrapper.jar
         
         # Create environment files required by Secrets Gradle Plugin
         touch .env
         touch .env.example
 
-    - name: Prepare Keystore File
-      run: |
-        if [ -f "app/release-upload-key.jks.base64" ]; then
-          echo "Decoding keystore from Base64 file robustly..."
-          tr -d '\r\n ' < app/release-upload-key.jks.base64 | base64 --decode > app/release-upload-key.jks
-          if [ -f "app/release-upload-key.jks" ]; then
-            echo "Keystore decoded successfully."
-            # Verify the integrity and password of the decoded keystore
-            keytool -list -keystore app/release-upload-key.jks -storepass "HalalCircleSecureUploadKey2026AAB99" && echo "Keystore verification successful!"
-          else
-            echo "Error: Failed to decode keystore!"
-            exit 1
-          fi
-        else
-          echo "Error: app/release-upload-key.jks.base64 not found in repository!"
-          exit 1
-        fi
+    - name: Build Debug APK
+      run: ./gradlew assembleDebug --no-daemon --stacktrace
 
-    - name: Build Release Bundle and APK
-      run: |
-        # Configure release credentials directly to use the new upload key
-        export KEYSTORE_PATH="app/release-upload-key.jks"
-        export STORE_PASSWORD="HalalCircleSecureUploadKey2026AAB99"
-        export KEY_PASSWORD="HalalCircleSecureUploadKey2026AAB99"
-        
-        echo "Building and signing AAB and APK with the new upload keystore..."
-        ./gradlew :app:bundleRelease :app:assembleRelease --no-daemon --stacktrace
+    - name: Build Release APK (Unsigned)
+      run: ./gradlew assembleRelease --no-daemon --stacktrace
 
-    - name: Upload Release AAB Artifact
+    - name: Upload Debug APK
       uses: actions/upload-artifact@v4
       with:
-        name: release-app-bundle
-        path: app/build/outputs/bundle/release/app-release.aab
+        name: debug-apk
+        path: app/build/outputs/apk/debug/*.apk
 
-    - name: Upload Release APK Artifact
+    - name: Upload Release APK (Unsigned)
       uses: actions/upload-artifact@v4
       with:
-        name: release-apk
-        path: app/build/outputs/apk/release/app-release.apk
+        name: release-unsigned-apk
+        path: app/build/outputs/apk/release/*.apk
