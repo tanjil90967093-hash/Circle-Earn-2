@@ -24,13 +24,17 @@ jobs:
       with:
         cache-disabled: true
 
-    - name: Prepare Environment & Wrapper
+    - name: Prepare Environment & Repair Gradle Wrapper
       run: |
         touch .env
         touch .env.example
         if [ -f debug.keystore.base64 ]; then
           base64 -d debug.keystore.base64 > debug.keystore
         fi
+        
+        # The gradle-wrapper.jar in the repository is corrupt.
+        # This command repairs it so ./gradlew works without throwing a ClassNotFoundException.
+        gradle wrapper --gradle-version 9.3.1
         chmod +x gradlew
 
     - name: Build Debug APK
