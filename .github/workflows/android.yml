@@ -17,7 +17,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Set up JDK 17
-      uses: actions/setup-java@v5
+      uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
@@ -32,6 +32,9 @@ jobs:
         # Create environment files required by Secrets Gradle Plugin
         touch .env
         touch .env.example
+        
+        # Fix KSP crash on CI by disabling in-process compilation
+        sed -i 's/kotlin.compiler.execution.strategy=in-process/kotlin.compiler.execution.strategy=daemon/g' gradle.properties
 
     - name: Build Debug APK
       run: ./gradlew assembleDebug --no-daemon --stacktrace
